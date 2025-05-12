@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login & Local Image Blobs (Less Overlap, Full Coverage Attempt 2)</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #E0E0E0;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .page-container { display: flex; height: 100%; width: 100%; }
+        .left-half {
+            flex: 1;
+            position: relative;
+            overflow: hidden; 
+            background-color: #050505; 
+            box-sizing: border-box;
+        }
+        .right-half {
+            flex: 1; display: flex; justify-content: center; align-items: center;
+            padding: 20px; box-sizing: border-box;
+        }
+        .login-container { width: 300px; padding: 20px; }
+        .login-container label { display: block; font-size: 0.9em; margin-bottom: 8px; color: #A0A0A0; }
+        .login-container input[type="tel"] {
+            width: 100%; padding: 12px; margin-bottom: 20px;
+            background-color: #1E2A38; border: 1px solid #1E2A38;
+            color: #E0E0E0; border-radius: 4px; box-sizing: border-box; font-size: 1em;
+        }
+        .login-container button {
+            width: 100%; padding: 12px; background-color: #F0F0F0; color: #121212;
+            border: none; border-radius: 4px; font-size: 1em; font-weight: bold;
+            cursor: pointer; text-transform: uppercase;
+        }
+
+        .collage-item {
+            position: absolute;
+            overflow: hidden; 
+        }
+
+        .collage-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform-origin: center center;
+            animation-name: kenburns;
+            animation-timing-function: linear;
+            animation-iteration-count: infinite;
+        }
+
+        @keyframes kenburns { 
+            0%, 100% { transform: scale(1.2) translate(-4%, 4%); }
+            25% { transform: scale(1.35) translate(4%, -3%); }
+            50% { transform: scale(1.25) translate(-3%, -2%); }
+            75% { transform: scale(1.4) translate(3%, 3%); }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-container">
+        <div class="left-half" id="collage-area">
+        </div>
+        <div class="right-half">
+            <div class="login-container">
+                <form action="#" method="post">
+                    <label for="phone">Enter your phone</label>
+                    <input type="tel" id="phone" name="phone" value="01144225896" required>
+                    <button type="submit">LOGIN</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const collageArea = document.getElementById('collage-area');
+            
+            const imageFolderName = 'rugs'; 
+
+            const imageFileNames = [
+                '1.jpg', '2.jpg', '3.jpg', '4.jpg', '5.jpg',
+                '6.jpg', '7.jpg', '8.jpg', '9.jpg', '10.jpg',
+                '11.jpg', '12.jpg', '13.jpg', '14.jpg', '15.jpg',
+            ];
+
+            const imageUrls = imageFileNames.map(fileName => `${imageFolderName}/${fileName}`);
+            const numberOfCollageItems = imageUrls.length; 
+
+            // --- Adjusting Blob Sizes and Positioning for Less Overlap & Full Coverage ---
+            const minBlobSizePercent = 60; // Larger minimum size
+            const maxBlobSizePercent = 90; // Larger maximum size
+                                         // Blobs will be between 60% and 90% of container dimensions
+
+            if (!collageArea) {
+                console.error("ERROR: Collage area ('collage-area') not found!");
+                return;
+            }
+            // Basic check to remind about image setup if default list is present and short
+            if (imageUrls.length < 5 && imageFileNames[0] === '1.jpg') { 
+                const instruction = document.createElement('p');
+                instruction.style.color = '#A0A0A0';
+                instruction.style.padding = '20px';
+                instruction.style.textAlign = 'center';
+                collageArea.appendChild(instruction);
+            }
+
+            function getRandomInt(min, max) {
+                return Math.floor(Math.random() * (max - min + 1)) + min;
+            }
+
+            function getRandomBorderRadiusPercentage() {
+                return getRandomInt(15, 85) + '%';
+            }
+
+            if (numberOfCollageItems === 0) {
+                console.log("No images provided, no collage items created.");
+                return; 
+            }
+
+            for (let i = 0; i < numberOfCollageItems; i++) { 
+                const item = document.createElement('div');
+                item.classList.add('collage-item');
+
+                const itemWidthPercent = getRandomInt(minBlobSizePercent, maxBlobSizePercent); 
+                const itemHeightPercent = getRandomInt(minBlobSizePercent, maxBlobSizePercent);
+
+                item.style.width = itemWidthPercent + '%';
+                item.style.height = itemHeightPercent + '%';
+                
+                // Adjusted positioning: 
+                // Allows blobs to go up to 30% of their dimension off-screen.
+                // The second part ensures that at least 70% of the blob *could* be visible
+                // if it were positioned at that extreme.
+                const topOffsetFactor = 0.30; // How much (as a fraction of size) it can go off-screen
+                const leftOffsetFactor = 0.30;
+
+                const topPos = getRandomInt(
+                    -itemHeightPercent * topOffsetFactor, 
+                    100 - itemHeightPercent * (1 - topOffsetFactor)
+                ); 
+                const leftPos = getRandomInt(
+                    -itemWidthPercent * leftOffsetFactor, 
+                    100 - itemWidthPercent * (1 - leftOffsetFactor)
+                );
+
+                item.style.top = topPos + '%';
+                item.style.left = leftPos + '%';
+
+                item.style.borderRadius = `
+                    ${getRandomBorderRadiusPercentage()} ${getRandomBorderRadiusPercentage()} 
+                    ${getRandomBorderRadiusPercentage()} ${getRandomBorderRadiusPercentage()} / 
+                    ${getRandomBorderRadiusPercentage()} ${getRandomBorderRadiusPercentage()} 
+                    ${getRandomBorderRadiusPercentage()} ${getRandomBorderRadiusPercentage()}
+                `;
+                
+                item.style.zIndex = getRandomInt(1, Math.max(1,numberOfCollageItems));
+
+                const img = document.createElement('img');
+                
+                img.src = imageUrls[i]; 
+                img.alt = `Collage image of ${imageFileNames[i]}`; 
+
+                img.onerror = function() {
+                    console.warn(`Image not found or could not load: ${this.src}`);
+                    this.alt = `Error loading: ${this.src.substring(this.src.lastIndexOf('/')+1)}`;
+                };
+
+                const duration = getRandomInt(28, 55); // Adjusted for potentially larger items
+                const delay = getRandomInt(0, 20);    
+                img.style.animationDuration = `${duration}s`;
+                img.style.animationDelay = `-${delay}s`;
+
+                item.appendChild(img);
+                collageArea.appendChild(item);
+            }
+            console.log(numberOfCollageItems + " unique collage items created.");
+        });
+    </script>
+</body>
+</html>

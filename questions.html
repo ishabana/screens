@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Rug Questionnaire - High Fidelity Animation</title>
+    <style>
+        /* Styles are identical to the previous version */
+        html, body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0D0D0D; color: #E0E0E0; overflow: hidden; }
+        .question-container { height: 100vh; scrollbar-width: none; -ms-overflow-style: none; }
+        .question-container::-webkit-scrollbar { display: none; }
+        .question-screen { height: 100vh; width: 100vw; display: flex; flex-direction: column; padding: 30px 0px 30px 50px; box-sizing: border-box; position: relative; }
+        .question-screen header { padding-bottom: 15px; height: 40px; flex-shrink: 0; }
+        .back-button { background-color: transparent; color: #A0A0A0; border: none; padding: 8px 0px; cursor: pointer; font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
+        .back-button:hover { color: #FFF; }
+        .content-wrapper { display: flex; flex-grow: 1; width: 100%; overflow: hidden; }
+        .question-main { flex-basis: 65%; max-width: 65%; display: flex; flex-direction: column; justify-content: center; padding-right: 50px; box-sizing: border-box; }
+        .animation-pane { flex-basis: 35%; max-width: 35%; height: 100%; position: relative; background-color: #FFFFFF; /* White background for animation */ }
+        .animation-pane canvas { display: block; width: 100%; height: 100%; }
+        .question-title { font-size: 38px; font-weight: 600; margin-bottom: 35px; color: #FFFFFF; line-height: 1.3; }
+        .image-options-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; width: 100%; }
+        .image-option { cursor: pointer; border: 3px solid transparent; padding: 0px; background-color: #1C1C1C; border-radius: 8px; text-align: center; transition: border-color 0.2s ease, transform 0.2s ease; overflow: hidden; }
+        .image-option:hover { transform: translateY(-4px); border-color: #444; }
+        .image-option.selected { border-color: #007BFF; }
+        .image-option img { width: 100%; height: 170px; object-fit: cover; display: block; background-color: #333; }
+        .image-option p { margin: 0; padding: 12px 8px; font-size: 15px; color: #CCCCCC; background-color: #1C1C1C; }
+        .question-screen footer { display: none; justify-content: space-between; align-items: center; padding: 15px 25px; background-color: #1A1A1A; border-radius: 6px; margin-top: 20px; min-height: 40px; margin-right: 50px; flex-shrink: 0; }
+        .info-text { font-size: 15px; color: #B0B0B0; flex-grow: 1; margin-right: 20px; }
+        .next-button { background-color: #F0F0F0; color: #121212; border: none; padding: 12px 35px; font-size: 15px; font-weight: bold; border-radius: 4px; cursor: pointer; transition: background-color 0.3s ease, color 0.3s ease; white-space: nowrap; }
+        .next-button:disabled { background-color: #404040; color: #777777; cursor: not-allowed; }
+        .next-button:not(:disabled):hover { background-color: #FFFFFF; color: #000000; }
+    </style>
+</head>
+<body>
+<div class="question-container">
+    <!-- Questions dynamically generated -->
+</div>
+
+<script>
+    const AnimationManager = {
+        questionIndex: 0,
+        elements: {
+            verticalLines: [],
+            diagonalLines: [],
+            motifs: []
+        },
+        config: {
+            colors: { // Defined from s1.png and s4.png
+                s1_pink_zone: ['hsl(330, 70%, 65%)', 'hsl(330, 75%, 70%)', 'hsl(325, 70%, 60%)'],
+                s1_cyan_zone: ['hsl(180, 70%, 55%)', 'hsl(180, 65%, 65%)', 'hsl(185, 70%, 60%)'],
+                s1_blue_zone: ['hsl(205, 50%, 40%)', 'hsl(210, 55%, 35%)', 'hsl(200, 45%, 45%)'],
+                diag_pink: 'hsl(330, 60%, 75%)', // Lighter for diagonals
+                diag_cyan: 'hsl(180, 60%, 70%)', // Lighter for diagonals
+                // s4.png motifs
+                motif_pink_star: 'hsl(335, 80%, 72%)',      // Top-left in s4
+                motif_dark_red_square_fill: 'hsl(0, 55%, 48%)', // Top-middle
+                motif_dark_red_square_line: 'hsl(0, 45%, 38%)',
+                motif_dark_green_square: 'hsl(140, 50%, 30%)', // Top-right
+                motif_brown_square_fill: 'hsl(28, 45%, 42%)',   // Bottom-middle
+                motif_brown_square_line: 'hsl(28, 40%, 32%)',
+                motif_blue_diamond: 'hsl(210, 65%, 58%)',      // Middle-left
+                motif_light_green_diamond: 'hsl(100, 55%, 65%)' // Middle-right
+            },
+            s1_line_anim_duration: 1500, // ms for fringe to grow
+            s1_line_y_oscillation: 2, // pixels for shimmer
+            v_line_thickness: 1.5,
+            d_line_thickness: 0.75,
+            motif_base_size_factor: 0.08, // Factor of min(canvasWidth, canvasHeight)
+            motif_spawn_start_q: 3, // Question 4 (index 3)
+            max_motifs: 20,
+        },
+        activeCanvas: null,
+        activeCtx: null,
+        animationFrameId: null,
+        lastTimestamp: 0,
+        currentStageStartTime: 0,
+
+        setActiveCanvas(canvasElement) {
+            if (!canvasElement) { /* ... (same as before) ... */ return; }
+            if (this.activeCanvas === canvasElement && this.animationFrameId) return;
+            this.activeCanvas = canvasElement; this.activeCtx = canvasElement.getContext('2d');
+            this.resizeCanvas(); // This will call initializeElements
+            if (this.animationFrameId) cancelAnimationFrame(this.animationFrameId);
+            this.lastTimestamp = performance.now(); this.currentStageStartTime = this.lastTimestamp;
+            this.loop();
+        },
+
+        resizeCanvas() {
+            if (!this.activeCanvas) return;
+            const pane = this.activeCanvas.parentElement;
+            this.activeCanvas.width = pane.clientWidth; this.activeCanvas.height = pane.clientHeight;
+            this.initializeElementsForQuestion();
+        },
+
+        updateForQuestion(qIndex) {
+            this.questionIndex = qIndex;
+            if (this.activeCanvas) {
+                 this.initializeElementsForQuestion();
+                 this.currentStageStartTime = performance.now();
+            }
+        },
+
+        initializeElementsForQuestion() {
+            if (!this.activeCanvas) return;
+            const cw = this.activeCanvas.width; const ch = this.activeCanvas.height;
+            this.elements = { verticalLines: [], diagonalLines: [], motifs: [] };
+
+            // === Stage 1: Vertical Fringe (s1.png) ===
+            const s1_total_lines = 60 + this.questionIndex * 5; // More lines for later stages if needed as bg
+            const zone_width_factor = cw / 3; // Divide into 3 rough color zones
+            
+            for (let i = 0; i < s1_total_lines; i++) {
+                let x = Math.random() * cw;
+                let zone_colors;
+                // Define color zones based on s1.png (Right:Blue, Mid:Cyan, Left:Pink)
+                if (x > cw * 0.66) zone_colors = this.config.colors.s1_blue_zone;       // Right ~1/3 Blue
+                else if (x > cw * 0.33) zone_colors = this.config.colors.s1_cyan_zone; // Middle ~1/3 Cyan
+                else zone_colors = this.config.colors.s1_pink_zone;                   // Left ~1/3 Pink
+
+                const color = zone_colors[Math.floor(Math.random() * zone_colors.length)];
+                const targetLength = ch * (0.3 + Math.random() * (this.questionIndex === 0 ? 0.4 : 0.65)); // Shorter for Q1 fringe
+                
+                this.elements.verticalLines.push({
+                    x, y: 0, color, targetLength, currentLength: 0,
+                    isFullyGrown: false,
+                    birthTime: performance.now() + Math.random() * 500, // Staggered birth for growing effect
+                    thickness: this.config.v_line_thickness * (0.8 + Math.random() * 0.4),
+                });
+            }
+
+            // === Stage 2 & 3: Diagonal Lines (s2.png, s3.png) ===
+            if (this.questionIndex >= 1) {
+                const numDiagonalLines = 10 + this.questionIndex * (this.questionIndex < 3 ? 5 : 10);
+                for (let i = 0; i < numDiagonalLines; i++) {
+                    this.elements.diagonalLines.push({
+                        x1: Math.random() * cw, y1: Math.random() * ch * 0.2, // Start near top
+                        x2: Math.random() * cw, y2: ch - (Math.random() * ch * 0.2), // End near bottom
+                        color: Math.random() > 0.5 ? this.config.colors.diag_pink : this.config.colors.diag_cyan,
+                        thickness: this.config.d_line_thickness, alpha: 0.5 + Math.random() * 0.3
+                    });
+                     this.elements.diagonalLines.push({ // Add criss-cross lines
+                        x1: Math.random() * cw * 0.2, y1: Math.random() * ch, 
+                        x2: cw - (Math.random() * cw * 0.2), y2: Math.random() * ch,
+                        color: Math.random() > 0.5 ? this.config.colors.diag_pink : this.config.colors.diag_cyan,
+                        thickness: this.config.d_line_thickness, alpha: 0.5 + Math.random() * 0.3
+                    });
+                }
+            }
+
+            // === Stage 4+: Motifs (s4.png) ===
+            if (this.questionIndex >= this.config.motif_spawn_start_q) {
+                const motifGridSize = 5 + Math.floor(this.questionIndex / 2); // Grid cells get finer
+                const cellW = cw / motifGridSize; const cellH = ch / motifGridSize;
+                const numMotifsToSpawn = Math.min(this.config.max_motifs, 
+                                            (this.questionIndex - this.config.motif_spawn_start_q + 1) * 3);
+                
+                let occupiedCells = new Set();
+                for (let i = 0; i < numMotifsToSpawn; i++) {
+                    let gx = Math.floor(Math.random() * motifGridSize);
+                    let gy = Math.floor(Math.random() * motifGridSize);
+                    let cellKey = `${gx}-${gy}`;
+                    let attempts = 0;
+                    while(occupiedCells.has(cellKey) && attempts < motifGridSize*motifGridSize){
+                        gx = Math.floor(Math.random() * motifGridSize);
+                        gy = Math.floor(Math.random() * motifGridSize);
+                        cellKey = `${gx}-${gy}`;
+                        attempts++;
+                    }
+                    if(attempts === motifGridSize*motifGridSize) continue; // No space
+                    occupiedCells.add(cellKey);
+
+                    const type = Math.floor(Math.random() * 6); // 6 motif types from s4.png
+                    this.elements.motifs.push({
+                        x: (gx + 0.5) * cellW, y: (gy + 0.5) * cellH, type,
+                        scale: 0.01, // Start small
+                        maxScale: 0.6 + (this.questionIndex / questionsData.length) * 0.4, // Grow larger by end
+                        rotation: (Math.random() > 0.5 ? Math.PI / 4 : 0) * (type === 3 || type === 4 || type ===0 ? 1: 0), // Diamonds/star might rotate
+                        birthTime: performance.now() + Math.random() * 1000 // Staggered appearance
+                    });
+                }
+            }
+        },
+        
+        drawMotif(ctx, motif, baseSize, timestamp) {
+            ctx.save();
+            ctx.translate(motif.x, motif.y);
+            const aliveTime = Math.max(0, timestamp - motif.birthTime);
+            let currentScale = motif.scale;
+            if (aliveTime > 0) { // Animate scale
+                currentScale = Math.min(motif.maxScale, motif.scale + (aliveTime / 2000) * motif.maxScale);
+            }
+            if (currentScale < 0.01) { ctx.restore(); return; } // Not yet visible or too small
+
+            ctx.rotate(motif.rotation);
+            ctx.scale(currentScale, currentScale);
+            
+            const mSize = baseSize; // Use a consistent base size for all motifs before scaling
+
+            switch (motif.type) {
+                case 0: // Pink Star/Cross (s4.png top-left)
+                    ctx.fillStyle = this.config.colors.motif_pink_star;
+                    ctx.beginPath(); // 4-pointed star
+                    ctx.moveTo(0, -mSize * 0.5); ctx.lineTo(mSize * 0.15, -mSize * 0.15);
+                    ctx.lineTo(mSize * 0.5, 0); ctx.lineTo(mSize * 0.15, mSize * 0.15);
+                    ctx.lineTo(0, mSize * 0.5); ctx.lineTo(-mSize * 0.15, mSize * 0.15);
+                    ctx.lineTo(-mSize * 0.5, 0); ctx.lineTo(-mSize * 0.15, -mSize * 0.15);
+                    ctx.closePath(); ctx.fill();
+                    break;
+                case 1: // Dark Red Square with Grid (s4.png top-middle)
+                    ctx.fillStyle = this.config.colors.motif_dark_red_square_fill;
+                    ctx.fillRect(-mSize/2, -mSize/2, mSize, mSize);
+                    ctx.strokeStyle = this.config.colors.motif_dark_red_square_line;
+                    ctx.lineWidth = mSize * 0.08;
+                    for (let j = 1; j < 3; j++) { // 2 internal lines
+                        ctx.beginPath(); ctx.moveTo(-mSize/2 + j*mSize/3, -mSize/2); ctx.lineTo(-mSize/2 + j*mSize/3, mSize/2); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(-mSize/2, -mSize/2 + j*mSize/3); ctx.lineTo(mSize/2, -mSize/2 + j*mSize/3); ctx.stroke();
+                    }
+                    break;
+                case 2: // Dark Green Square (s4.png top-right)
+                    ctx.fillStyle = this.config.colors.motif_dark_green_square;
+                    ctx.fillRect(-mSize/2, -mSize/2, mSize, mSize);
+                    break;
+                case 3: // Brown Square with X (s4.png bottom-middle)
+                    ctx.fillStyle = this.config.colors.motif_brown_square_fill;
+                    ctx.fillRect(-mSize/2, -mSize/2, mSize, mSize);
+                    ctx.strokeStyle = this.config.colors.motif_brown_square_line;
+                    ctx.lineWidth = mSize * 0.15;
+                    ctx.beginPath(); ctx.moveTo(-mSize/2 * 0.8, -mSize/2 * 0.8); ctx.lineTo(mSize/2 * 0.8, mSize/2 * 0.8); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(mSize/2 * 0.8, -mSize/2 * 0.8); ctx.lineTo(-mSize/2 * 0.8, mSize/2 * 0.8); ctx.stroke();
+                    break;
+                case 4: // Blue Diamond (s4.png middle-left)
+                    ctx.fillStyle = this.config.colors.motif_blue_diamond;
+                    ctx.beginPath(); ctx.moveTo(0, -mSize/2); ctx.lineTo(mSize/2, 0); 
+                    ctx.lineTo(0, mSize/2); ctx.lineTo(-mSize/2, 0);
+                    ctx.closePath(); ctx.fill();
+                    break;
+                case 5: // Light Green Diamond (s4.png middle-right)
+                    ctx.fillStyle = this.config.colors.motif_light_green_diamond;
+                     ctx.beginPath(); ctx.moveTo(0, -mSize/2); ctx.lineTo(mSize/2, 0); 
+                    ctx.lineTo(0, mSize/2); ctx.lineTo(-mSize/2, 0);
+                    ctx.closePath(); ctx.fill();
+                    break;
+            }
+            ctx.restore();
+        },
+
+        loop(timestamp) {
+            this.animationFrameId = requestAnimationFrame((ts) => this.loop(ts));
+            if (!this.activeCtx || !this.activeCanvas || this.activeCanvas.width === 0) return;
+            const deltaTime = (timestamp - this.lastTimestamp) / 1000; // seconds
+            this.lastTimestamp = timestamp;
+
+            const ctx = this.activeCtx; const cw = this.activeCanvas.width; const ch = this.activeCanvas.height;
+            ctx.clearRect(0, 0, cw, ch);
+
+            const timeSinceStageStart = timestamp - this.currentStageStartTime;
+
+            // Vertical Lines (s1.png fringe, then background grid)
+            this.elements.verticalLines.forEach(line => {
+                if (!line.isFullyGrown) {
+                    const timeSinceBirth = Math.max(0, timestamp - line.birthTime);
+                    const growthProgress = Math.min(1, timeSinceBirth / this.config.s1_line_anim_duration);
+                    line.currentLength = line.targetLength * growthProgress;
+                    if (growthProgress >= 1) line.isFullyGrown = true;
+                }
+                
+                let yOffset = 0;
+                if (this.questionIndex === 0 && line.isFullyGrown) { // Shimmer for s1.png
+                    yOffset = Math.sin(timestamp * 0.002 + line.x * 0.1) * this.config.s1_line_y_oscillation;
+                }
+                
+                // For Q2+, vertical lines form a static grid, no oscillation.
+                // Their length is maintained by targetLength, which is set longer after Q1.
+                if (this.questionIndex > 0) {
+                    line.currentLength = line.targetLength; // Ensure full length for grid
+                }
+
+                ctx.beginPath(); ctx.moveTo(line.x, line.y + yOffset);
+                ctx.lineTo(line.x, line.y + yOffset + line.currentLength);
+                ctx.strokeStyle = line.color; ctx.lineWidth = line.thickness;
+                ctx.stroke();
+            });
+
+            // Diagonal Lines (s2.png, s3.png)
+            if (this.questionIndex >= 1) {
+                this.elements.diagonalLines.forEach(dline => {
+                    ctx.beginPath(); ctx.moveTo(dline.x1, dline.y1); ctx.lineTo(dline.x2, dline.y2);
+                    ctx.strokeStyle = dline.color; ctx.lineWidth = dline.thickness; 
+                    ctx.globalAlpha = dline.alpha; ctx.stroke(); ctx.globalAlpha = 1.0;
+                });
+            }
+            
+            // Motifs (s4.png)
+            if (this.questionIndex >= this.config.motif_spawn_start_q) {
+                const motifDrawBaseSize = Math.min(cw, ch) * this.config.motif_base_size_factor;
+                this.elements.motifs.forEach(motif => {
+                    this.drawMotif(ctx, motif, motifDrawBaseSize, timestamp);
+                });
+            }
+        }
+    };
+    
+    // --- Questionnaire Logic (Identical to previous version) ---
+    const questionsData = [ /* Using the same 10 questions data */
+        { title: "Where would you like to place your rug?", info: "The living room rug...", options: [ { text: "LIVING ROOM", value: "living-room", img: "5a5a5a/ffffff?text=Living+Room+Scene" }, { text: "BEDROOM", value: "bedroom", img: "5a5a5a/ffffff?text=Bedroom+Scene" }, { text: "DINNING ROOM", value: "dinning-room", img: "5a5a5a/ffffff?text=Dining+Room+Scene" }, { text: "RECEPTION", value: "reception", img: "5a5a5a/ffffff?text=Reception+Area" }, { text: "OTHER", value: "other-location", img: "5a5a5a/ffffff?text=Other+Space" } ]},
+        { title: "What's your preferred rug style?", info: "Choose a style...", options: [ { text: "MODERN", value: "modern", img: "6a6a6a/ffffff?text=Modern+Style" }, { text: "TRADITIONAL", value: "traditional", img: "6a6a6a/ffffff?text=Traditional+Style" }, { text: "BOHEMIAN", value: "bohemian", img: "6a6a6a/ffffff?text=Bohemian+Style" }, { text: "SCANDINAVIAN", value: "scandinavian", img: "6a6a6a/ffffff?text=Scandinavian+Style" } ]},
+        { title: "Which color palette appeals to you most?", info: "Color can transform...", options: [ { text: "NEUTRALS", value: "neutrals", img: "7a7a7a/ffffff?text=Neutral+Colors" }, { text: "COOL TONES", value: "cool-tones", img: "7a7a7a/ffffff?text=Cool+Tones" }, { text: "WARM TONES", value: "warm-tones", img: "7a7a7a/ffffff?text=Warm+Tones" }, { text: "MONOCHROMATIC", value: "monochromatic", img: "7a7a7a/ffffff?text=Monochromatic" } ]},
+        { title: "What rug size are you considering?", info: "Proper sizing is key.", options: [ {text:"SMALL", value:"small", img:"8a8a8a/ffffff?text=Small"}, {text:"MEDIUM", value:"medium",img:"8a8a8a/ffffff?text=Medium"}, {text:"LARGE", value:"large",img:"8a8a8a/ffffff?text=Large"}]},
+        { title: "What material do you prefer?", info: "Material affects feel...", options: [ {text:"WOOL", value:"wool", img:"9a9a9a/ffffff?text=Wool"}, {text:"COTTON", value:"cotton",img:"9a9a9a/ffffff?text=Cotton"}, {text:"SYNTHETICS", value:"synthetics",img:"9a9a9a/ffffff?text=Synthetics"}]},
+        { title: "Any pattern preferences?", info: "Patterns add character.", options: [ {text:"SOLID", value:"solid", img:"aaaaaa/ffffff?text=Solid"}, {text:"GEOMETRIC", value:"geometric",img:"aaaaaa/ffffff?text=Geometric"}, {text:"ABSTRACT", value:"abstract",img:"aaaaaa/ffffff?text=Abstract"}]},
+        { title: "How much foot traffic?", info: "Consider durability.", options: [ {text:"LOW", value:"low", img:"bababa/ffffff?text=Low+Traffic"}, {text:"MEDIUM", value:"medium",img:"bababa/ffffff?text=Medium+Traffic"}, {text:"HIGH", value:"high",img:"bababa/ffffff?text=High+Traffic"}]},
+        { title: "Pets or young children?", info: "Helps determine maintenance.", options: [ {text:"YES", value:"yes-pets", img:"cacaca/000000?text=Pets/Kids"}, {text:"NO", value:"no-pets",img:"cacaca/000000?text=No+Pets/Kids"}]},
+        { title: "Approximate budget?", info: "Helps narrow options.", options: [ {text:"< $200", value:"under-200", img:"dadada/000000?text=Under+$200"}, {text:"$200-500", value:"200-500",img:"dadada/000000?text=$200-500"}, {text:"> $500", value:"over-500",img:"dadada/000000?text=Over+$500"}]},
+        { title: "Any specific features?", info: "Special requirements?", options: [ {text:"WASHABLE", value:"washable", img:"eaeaea/000000?text=Washable"}, {text:"OUTDOOR", value:"outdoor",img:"eaeaea/000000?text=Outdoor"}, {text:"HANDMADE", value:"handmade",img:"eaeaea/000000?text=Handmade"}]}
+    ];
+    const questionContainer = document.querySelector('.question-container');
+    const userAnswers = new Array(questionsData.length).fill(null);
+    function buildQuestionScreen(qData, index) { /* ... (same as before) ... */ 
+        const screen = document.createElement('section'); screen.className = 'question-screen'; screen.id = `question-${index + 1}`;
+        screen.innerHTML = `<header><button class="back-button" data-question-index="${index}">BACK</button></header><div class="content-wrapper"><div class="question-main"><h2 class="question-title">${qData.title}</h2><div class="image-options-grid">${qData.options.map(opt => `<div class="image-option" data-value="${opt.value}"><img src="https://via.placeholder.com/250x180/${opt.img}" alt="${opt.text}"><p>${opt.text}</p></div>`).join('')}</div></div><div class="animation-pane"><canvas id="animation-canvas-${index + 1}"></canvas></div></div><footer><span class="info-text">${qData.info}</span><button class="next-button" data-question-index="${index}" disabled>${index === questionsData.length - 1 ? 'FINISH' : 'NEXT'}</button></footer>`;
+        return screen;
+    }
+    questionsData.forEach((qData, index) => { /* ... (event listeners same as before) ... */ 
+        const screenElement = buildQuestionScreen(qData, index); questionContainer.appendChild(screenElement);
+        const imageOptions = screenElement.querySelectorAll('.image-option'); const nextButton = screenElement.querySelector('.next-button'); const backButton = screenElement.querySelector('.back-button'); const footer = screenElement.querySelector('footer');
+        imageOptions.forEach(option => { option.addEventListener('click', () => { screenElement.querySelectorAll('.image-option').forEach(opt => opt.classList.remove('selected')); option.classList.add('selected'); userAnswers[index] = option.dataset.value; if (footer) footer.style.display = 'flex'; if (nextButton) nextButton.disabled = false; }); });
+        if (nextButton) { nextButton.addEventListener('click', () => { const currentQIndex = parseInt(nextButton.dataset.questionIndex); const nextQIndex = currentQIndex + 1; if (nextQIndex < questionsData.length) { const nextScreen = document.getElementById(`question-${nextQIndex + 1}`); if (nextScreen) { nextScreen.scrollIntoView({ behavior: 'smooth', block: 'start' }); AnimationManager.updateForQuestion(nextQIndex); AnimationManager.setActiveCanvas(nextScreen.querySelector('canvas'));}} else { alert('Questionnaire Complete!\nAnswers: ' + userAnswers.filter(a=>a).join(', '));}}); }
+        if (backButton) { if (index === 0) backButton.style.visibility = 'hidden'; backButton.addEventListener('click', () => { const currentQIndex = parseInt(backButton.dataset.questionIndex); const prevQIndex = currentQIndex - 1; if (prevQIndex >= 0) { const prevScreen = document.getElementById(`question-${prevQIndex + 1}`); if (prevScreen) { prevScreen.scrollIntoView({ behavior: 'smooth', block: 'start' }); AnimationManager.updateForQuestion(prevQIndex); AnimationManager.setActiveCanvas(prevScreen.querySelector('canvas'));}}}); }
+    });
+    if (questionsData.length > 0) { /* ... (initial setup same as before, with timeout) ... */
+        const firstScreen = document.getElementById('question-1'); if (firstScreen) { firstScreen.scrollIntoView({ block: 'start' }); setTimeout(() => { AnimationManager.updateForQuestion(0); AnimationManager.setActiveCanvas(firstScreen.querySelector('canvas'));}, 100);}}
+    let resizeTimeout; window.addEventListener('resize', () => { /* ... (debounced resize same) ... */ clearTimeout(resizeTimeout); resizeTimeout = setTimeout(() => { if (AnimationManager.activeCanvas) { AnimationManager.resizeCanvas();}}, 250);});
+</script>
+</body>
+</html>

@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rug Finder</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            color: #333;
+            overflow: hidden; 
+            background-color: #f0f0f0; 
+        }
+
+        .background-rug-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 0px; /* No gap */
+            z-index: -1;
+            perspective: 2000px;
+            background-color: #7f8c8d; 
+        }
+
+        .rug-grid-item {
+            width: 100%;
+            height: 100%;
+            perspective: 800px;
+        }
+
+        .flipper {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.8s cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
+
+        .flipper.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            background-color: #4a4a4a; /* Fallback color if image doesn't load */
+            background-size: cover; 
+            background-position: center; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 10px; 
+        }
+        .back-face {
+            transform: rotateY(180deg);
+        }
+
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 30px;
+            background-color: #2c3e50;
+            color: white;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+
+        .search-bar {
+            font-size: 0.9em;
+        }
+
+        header nav a {
+            color: white;
+            text-decoration: none;
+            margin-left: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        header nav a:hover {
+            text-decoration: underline;
+        }
+
+        main {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .rug-finder-modal {
+            background-color: white;
+            padding: 40px 50px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            max-width: 450px;
+            width: 100%;
+            z-index: 5;
+        }
+
+        .rug-finder-modal h1 {
+            font-size: 2em;
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .rug-finder-modal p {
+            font-size: 1em;
+            color: #555;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .start-now-btn {
+            background-color: #2c3e50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1em;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            display: block;
+            width: 100%;
+            margin-bottom: 20px;
+            transition: background-color 0.3s;
+        }
+        .start-now-btn:hover {
+            background-color: #34495e;
+        }
+
+        .explore-collection-link {
+            font-size: 0.9em;
+            color: #333;
+            text-decoration: none;
+            font-weight: bold;
+            display: block;
+        }
+        .explore-collection-link:hover {
+            text-decoration: underline;
+        }
+        
+        #imageError { /* Style for the error message */
+            display:none; 
+            position:fixed; 
+            top:50%; 
+            left:50%; 
+            transform:translate(-50%,-50%); 
+            background:rgba(200,0,0,0.85); 
+            color:white; 
+            padding:25px; 
+            border-radius:8px; 
+            z-index:2000; 
+            text-align:center;
+            font-size: 1.1em;
+            line-height: 1.5;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="imageError">
+        Error: Not enough unique images available to display without repetition. <br>
+        Please provide at least <strong id="requiredImages"></strong> unique images for <strong id="displayCells"></strong> display cells. <br>
+        You currently have <strong id="availableImages"></strong> unique images. <br><br>
+        (Animation will not start)
+    </div>
+
+    <div class="background-rug-grid" id="rugGrid">
+        <!-- Rug flippers will be generated here by JavaScript -->
+    </div>
+
+    <header>
+        <div class="search-bar">🔍 Search by SKU or Rug Code</div>
+        <nav>
+            <a href="#">EXPLORE</a>
+            <a href="#">❤️ WISHLIST</a>
+            <a href="#">LOG OUT</a>
+        </nav>
+    </header>
+
+    <main>
+        <div class="rug-finder-modal">
+            <h1>RUG FINDER</h1>
+            <p>Let us help you find your perfect match by answering a few questions!</p>
+            <button class="start-now-btn">START NOW!</button>
+            <a href="#" class="explore-collection-link">EXPLORE COLLECTION</a>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const rugGrid = document.getElementById('rugGrid');
+            const imageErrorDiv = document.getElementById('imageError');
+            const NUM_ROWS = 2; 
+            const NUM_COLS = 6;
+            const TOTAL_CELLS = NUM_ROWS * NUM_COLS; // 12 cells
+            
+            // --- IMPORTANT: Update this array with your actual image filenames ---
+            // --- To ensure unique images, length should be >= TOTAL_CELLS (12) ---
+            const localRugImageFilenames = Array.from(
+                { length: 10 }, // CURRENTLY: 10 images. Change to 12 or more for unique display.
+                (_, i) => `${i + 1}.jpg` 
+            );
+            // Example for 12 images: { length: 12 }
+
+            if (localRugImageFilenames.length === 0 && TOTAL_CELLS > 0) {
+                console.error("The 'localRugImageFilenames' array is empty.");
+                imageErrorDiv.querySelector('#requiredImages').textContent = TOTAL_CELLS;
+                imageErrorDiv.querySelector('#displayCells').textContent = TOTAL_CELLS;
+                imageErrorDiv.querySelector('#availableImages').textContent = 0;
+                imageErrorDiv.style.display = 'block';
+                return; 
+            }
+            
+            const rugImagePaths = localRugImageFilenames.map(filename => `rugs/${filename}`);
+            const TOTAL_UNIQUE_RUG_IMAGES = rugImagePaths.length;
+
+            // --- Strict Uniqueness Check ---
+            if (TOTAL_UNIQUE_RUG_IMAGES < TOTAL_CELLS && TOTAL_CELLS > 0) {
+                console.error(`Cannot display unique images. Need ${TOTAL_CELLS}, have ${TOTAL_UNIQUE_RUG_IMAGES}.`);
+                imageErrorDiv.querySelector('#requiredImages').textContent = TOTAL_CELLS;
+                imageErrorDiv.querySelector('#displayCells').textContent = TOTAL_CELLS;
+                imageErrorDiv.querySelector('#availableImages').textContent = TOTAL_UNIQUE_RUG_IMAGES;
+                imageErrorDiv.style.display = 'block';
+                // Do not proceed with animation if strict uniqueness cannot be met.
+                return; 
+            }
+
+            let flipperElements = [];    
+            const FLIP_ANIMATION_DURATION = 800; 
+            const PAUSE_DURATION = 5000; 
+
+            let currentAssignments = []; // Will store [{front: index, back: index}, ...]
+
+            function shuffleArray(array) {
+                let newArray = [...array];
+                for (let i = newArray.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+                }
+                return newArray;
+            }
+
+            function generateFlipperAssignments(numCells, numUniqueImages) {
+                const assignments = [];
+                const allImageIndices = Array.from({ length: numUniqueImages }, (_, k) => k);
+                
+                let shuffledIndicesForFront = shuffleArray([...allImageIndices]);
+                
+                // Assign front faces (guaranteed unique if numUniqueImages >= numCells)
+                for (let i = 0; i < numCells; i++) {
+                    assignments.push({ front: shuffledIndicesForFront[i], back: -1 });
+                }
+
+                // Assign back faces (guaranteed unique and different from front, if numUniqueImages > 1)
+                let potentialBackIndices = shuffleArray([...allImageIndices]);
+                let usedAsBack = new Set();
+
+                for (let i = 0; i < numCells; i++) {
+                    let backFound = false;
+                    for (const candidateIdx of potentialBackIndices) {
+                        if (numUniqueImages === 1) { // Special case: only one image
+                            assignments[i].back = candidateIdx;
+                            usedAsBack.add(candidateIdx); // Not strictly needed for uniqueness among backs if only 1
+                            backFound = true;
+                            break;
+                        }
+                        if (candidateIdx !== assignments[i].front && !usedAsBack.has(candidateIdx)) {
+                            assignments[i].back = candidateIdx;
+                            usedAsBack.add(candidateIdx);
+                            backFound = true;
+                            break;
+                        }
+                    }
+                     // This fallback should ideally not be needed if numUniqueImages > 1,
+                     // as the loop should always find a unique, different image.
+                     // If numUniqueImages === numCells, and the very last pick for `usedAsBack` makes the only remaining
+                     // `candidateIdx` same as `assignments[i].front`, this might need a swap.
+                     // However, given the double shuffle, it's less likely.
+                     // A simpler guarantee for numUniqueImages === numCells and > 1:
+                     if (!backFound && numUniqueImages === numCells && numUniqueImages > 1) {
+                         // This situation is tricky, means all other unique images are already taken by other backs.
+                         // The only image left for `usedAsBack` IS `assignments[i].front`.
+                         // To maintain all backs unique, we must use `assignments[i].front`.
+                         // This violates front != back for this one cell, but keeps all BACKS unique.
+                         // Or, we accept non-unique back for this cell.
+                         // Let's try to force difference:
+                         for (let k=0; k < numUniqueImages; k++) {
+                             let forcedBackIdx = (assignments[i].front + 1 + k) % numUniqueImages;
+                             if (!usedAsBack.has(forcedBackIdx)){
+                                 assignments[i].back = forcedBackIdx;
+                                 usedAsBack.add(forcedBackIdx);
+                                 backFound = true;
+                                 break;
+                             }
+                         }
+                     }
+                     if (!backFound) { // Still not found (e.g. numUniqueImages=1 or extreme edge)
+                        assignments[i].back = assignments[i].front; // Default if all else fails
+                     }
+                }
+                return assignments;
+            }
+
+
+            function applyAssignmentsToDOM(assignments) {
+                flipperElements.forEach((flipper, i) => {
+                    flipper.querySelector('.front-face').style.backgroundImage = `url('${rugImagePaths[assignments[i].front]}')`;
+                    flipper.querySelector('.back-face').style.backgroundImage = `url('${rugImagePaths[assignments[i].back]}')`;
+                });
+            }
+
+            function initGrid() {
+                for (let i = 0; i < TOTAL_CELLS; i++) {
+                    const gridItem = document.createElement('div');
+                    gridItem.className = 'rug-grid-item';
+                    const flipper = document.createElement('div');
+                    flipper.className = 'flipper';
+                    
+                    const frontFace = document.createElement('div');
+                    frontFace.className = 'face front-face';
+                    const backFace = document.createElement('div');
+                    backFace.className = 'face back-face';
+                    
+                    flipper.appendChild(frontFace);
+                    flipper.appendChild(backFace);
+                    gridItem.appendChild(flipper);
+                    rugGrid.appendChild(gridItem);
+                    flipperElements.push(flipper);
+                }
+                currentAssignments = generateFlipperAssignments(TOTAL_CELLS, TOTAL_UNIQUE_RUG_IMAGES);
+                applyAssignmentsToDOM(currentAssignments);
+            }
+
+            function scheduleFlips() {
+                const maxStaggerDelay = 1500;
+                
+                flipperElements.forEach((flipper) => {
+                    const delay = Math.random() * maxStaggerDelay;
+                    setTimeout(() => {
+                        flipper.classList.add('flipped');
+                    }, delay);
+                });
+
+                const timeUntilAllFlipped = maxStaggerDelay + FLIP_ANIMATION_DURATION;
+
+                setTimeout(() => {
+                    // The images that were on the back are now the new front ones for the next assignment generation
+                    // So, effectively, we just need new assignments.
+                    currentAssignments = generateFlipperAssignments(TOTAL_CELLS, TOTAL_UNIQUE_RUG_IMAGES);
+                    applyAssignmentsToDOM(currentAssignments);
+                    
+                    flipperElements.forEach(flipper => flipper.classList.remove('flipped'));
+
+                    setTimeout(scheduleFlips, 100);
+
+                }, timeUntilAllFlipped + PAUSE_DURATION);
+            }
+
+            initGrid();
+            // Animation only starts if the uniqueness check passed (i.e., script didn't return early)
+            if (TOTAL_UNIQUE_RUG_IMAGES > 0) { // Basic check that images exist at all
+                 setTimeout(scheduleFlips, 100); 
+            }
+        });
+    </script>
+
+</body>
+</html>

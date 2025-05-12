@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 432 288">
+  <!-- Generator: Adobe Illustrator 29.3.1, SVG Export Plug-In . SVG Version: 2.1.0 Build 151)  -->
+  <defs>
+    <style>
+      .st0 {
+        fill: #310a35;
+      }
+
+      .st1 {
+        font-size: 41.53px;
+      }
+
+      .st1, .st2 {
+        fill: #fff;
+        font-family: IBMPlexMono-SemiBold, 'IBM Plex Mono';
+        font-weight: 600;
+      }
+
+      .st2 {
+        font-size: 75.83px;
+      }
+    </style>
+  </defs>
+  <rect x="144.38" width="144" height="144"/>
+  <rect x="288.38" width="144" height="144"/>
+  <rect class="st0" x="288.38" y="144" width="144" height="144"/>
+  <rect x=".38" y="144" width="144" height="144"/>
+  <rect x="144.38" y="144" width="144" height="144"/>
+  <text class="st2" transform="translate(193.63 94.18)"><tspan x="0" y="0">O</tspan></text>
+  <text class="st2" transform="translate(337.63 94.18)"><tspan x="0" y="0">W</tspan></text>
+  <text class="st1" transform="translate(323 228.15)"><tspan x="0" y="0">0.1</tspan></text>
+  <text class="st2" transform="translate(49.63 238.18)"><tspan x="0" y="0">A</tspan></text>
+  <text class="st2" transform="translate(193.63 238.18)"><tspan x="0" y="0">I</tspan></text>
+</svg>

@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Kilim Carpet Pattern</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000000;
+        }
+        .grid-container {
+            display: flex;
+            flex-direction: column;
+            width: 100vw;
+            height: 100vh;
+            justify-content: flex-start;
+            align-items: flex-start;
+            overflow: hidden;
+        }
+        .pattern-row {
+            display: flex;
+            flex-wrap: nowrap;
+            width: 100%;
+            height: 6px;
+        }
+        .square {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        /* Smooth gradient color palette */
+        .c1 { background: linear-gradient(45deg, #4a45b2, #7671c4); }
+        .c1a { background: linear-gradient(45deg, #7671c4, #8f8ad0); }
+        .c1b { background: linear-gradient(45deg, #3930a5, #4a45b2); }
+        
+        .c2 { background: linear-gradient(45deg, #991900, #ff4d1a); }
+        .c2a { background: linear-gradient(45deg, #ff4d1a, #ff704d); }
+        .c2b { background: linear-gradient(45deg, #661100, #991900); }
+        
+        .c3 { background: linear-gradient(45deg, #8a1688, #d424d2); }
+        .c3a { background: linear-gradient(45deg, #d424d2, #e24de0); }
+        .c3b { background: linear-gradient(45deg, #66116b, #8a1688); }
+        
+        .c4 { background: linear-gradient(45deg, #004d33, #00995f); }
+        .c4a { background: linear-gradient(45deg, #00995f, #00cc7a); }
+        .c4b { background: linear-gradient(45deg, #003322, #004d33); }
+        
+        .c5 { background: linear-gradient(45deg, #cc3700, #ff661a); }
+        .c5a { background: linear-gradient(45deg, #ff661a, #ff884d); }
+        .c5b { background: linear-gradient(45deg, #992900, #cc3700); }
+        
+        .c6 { background: linear-gradient(45deg, #000000, #1a1a1a); }
+        .c6a { background: linear-gradient(45deg, #1a1a1a, #333333); }
+        .c6b { background: radial-gradient(circle at center, #1a1a1a, #000000); }
+        
+        .c7 { background: linear-gradient(45deg, #98133f, #e81d60); }
+        .c7a { background: linear-gradient(45deg, #e81d60, #ed4981); }
+        .c7b { background: linear-gradient(45deg, #730e2f, #98133f); }
+        
+        .c8 { background: linear-gradient(45deg, #0d021c, #2a0559); }
+        .c8a { background: linear-gradient(45deg, #2a0559, #3a077a); }
+        .c8b { background: radial-gradient(circle at center, #2a0559, #0d021c); }
+        
+        /* Additional gradient colors */
+        .c9 { background: linear-gradient(45deg, #008080, #00cccc); }
+        .c9a { background: linear-gradient(45deg, #00cccc, #00ffff); }
+        .c9b { background: radial-gradient(circle at center, #00cccc, #006666); }
+        
+        .c10 { background: linear-gradient(45deg, #800066, #cc00a3); }
+        .c10a { background: linear-gradient(45deg, #cc00a3, #ff00cc); }
+        .c10b { background: radial-gradient(circle at center, #cc00a3, #660052); }
+
+        /* Pattern-specific gradients */
+        .pattern-radial { background: radial-gradient(circle at center, var(--color-start), var(--color-end)); }
+        .pattern-conic { background: conic-gradient(from 45deg, var(--color-start), var(--color-end), var(--color-start)); }
+        .pattern-diamond { background: conic-gradient(from 45deg at 50% 50%, var(--color-start) 0deg, var(--color-end) 90deg, var(--color-start) 180deg, var(--color-end) 270deg, var(--color-start) 360deg); }
+    </style>
+</head>
+<body>
+    <div class="grid-container" id="gridContainer"></div>
+
+    <script>
+        // Add gradient color utilities
+        function getGradientColors(baseColor) {
+            const colors = {
+                c1: ['#4a45b2', '#7671c4'],
+                c2: ['#991900', '#ff4d1a'],
+                c3: ['#8a1688', '#d424d2'],
+                c4: ['#004d33', '#00995f'],
+                c5: ['#cc3700', '#ff661a'],
+                c6: ['#000000', '#1a1a1a'],
+                c7: ['#98133f', '#e81d60'],
+                c8: ['#0d021c', '#2a0559'],
+                c9: ['#008080', '#00cccc'],
+                c10: ['#800066', '#cc00a3']
+            };
+            return colors[baseColor] || colors.c1;
+        }
+
+        function createGradientClass(colors, type = 'linear', angle = 45) {
+            const [start, end] = colors;
+            if (type === 'radial') {
+                return `radial-gradient(circle at center, ${start}, ${end})`;
+            } else if (type === 'conic') {
+                return `conic-gradient(from ${angle}deg, ${start}, ${end}, ${start})`;
+            }
+            return `linear-gradient(${angle}deg, ${start}, ${end})`;
+        }
+
+        function createKilimPattern(x, y, size) {
+            const patterns = {
+                // Update pattern definitions to use gradients
+                triangles: (px, py) => {
+                    const diagonal = (px + py) % size;
+                    const alt = Math.floor(px / (size/4)) % 2;
+                    const colors = getGradientColors(alt ? 'c1' : 'c2');
+                    return {
+                        isPattern: diagonal < size/2,
+                        gradient: createGradientClass(colors, 'linear', (px + py) % 360)
+                    };
+                },
+                diamonds: (px, py) => {
+                    const centerX = size / 2;
+                    const centerY = size / 2;
+                    const dist = Math.abs(px - centerX) + Math.abs(py - centerY);
+                    const colors = getGradientColors(dist < size/3 ? 'c3' : 'c4');
+                    return {
+                        isPattern: dist < size/3 || dist > size/1.5,
+                        gradient: createGradientClass(colors, 'linear', (px + py) % 360)
+                    };
+                },
+                chevrons: (px, py) => {
+                    const pos = (px - py + size) % size;
+                    const colors = getGradientColors('c5');
+                    return {
+                        isPattern: pos < size/2,
+                        gradient: createGradientClass(colors, 'linear', (px + py) % 360)
+                    };
+                },
+                steps: (px, py) => {
+                    const step = Math.floor(px/4) + Math.floor(py/4);
+                    const colors = getGradientColors('c6');
+                    return {
+                        isPattern: step % 3 === 0,
+                        gradient: createGradientClass(colors, 'linear', (px + py) % 360)
+                    };
+                },
+                hexagons: (px, py) => {
+                    const hexX = px % (size/2);
+                    const hexY = py % (size/2);
+                    const dist = Math.sqrt(Math.pow(hexX - size/4, 2) + Math.pow(hexY - size/4, 2));
+                    const colors = getGradientColors('c7');
+                    return {
+                        isPattern: dist < size/4,
+                        gradient: createGradientClass(colors, 'linear', (px + py) % 360)
+                    };
+                },
+                waves: (px, py) => {
+                    const wave = Math.sin((px + py) * Math.PI / (size/2));
+                    const colors = getGradientColors('c8');
+                    return {
+                        isPattern: wave > 0.3,
+                        gradient: createGradientClass(colors, 'linear', (px + py) % 360)
+                    };
+                },
+                crosshatch: (px, py) => {
+                    const line1 = (px + py) % (size/4) < size/8;
+                    const line2 = (px - py) % (size/4) < size/8;
+                    const colors = getGradientColors('c1');
+                    return {
+                        isPattern: line1 || line2,
+                        gradient: createGradientClass(colors, 'linear', (px + py) % 360)
+                    };
+                },
+                dots: (px, py) => {
+                    const dotX = px % (size/3);
+                    const dotY = py % (size/3);
+                    const dist = Math.sqrt(Math.pow(dotX - size/6, 2) + Math.pow(dotY - size/6, 2));
+                    const colors = getGradientColors('c3');
+                    return {
+                        isPattern: dist < size/8,
+                        gradient: createGradientClass(colors, 'linear', (px + py) % 360)
+                    };
+                },
+                zigzagBorder: (px, py) => {
+                    const zigX = px % (size/2);
+                    const zigY = py % (size/2);
+                    const diagonal = Math.abs(zigX - zigY);
+                    const colors = getGradientColors('c4');
+                    return {
+                        isPattern: diagonal < size/6,
+                        gradient: createGradientClass(colors, 'linear', (px + py) % 360)
+                    };
+                },
+                octagons: (px, py) => {
+                    const octX = px % (size/2) - size/4;
+                    const octY = py % (size/2) - size/4;
+                    const dist = Math.max(Math.abs(octX), Math.abs(octY));
+                    const colors = getGradientColors('c5');
+                    return {
+                        isPattern: dist < size/6,
+                        gradient: createGradientClass(colors, 'linear', (px + py) % 360)
+                    };
+                },
+                starburst: (px, py) => {
+                    const centerX = size/2;
+                    const centerY = size/2;
+                    const angle = Math.atan2(py - centerY, px - centerX);
+                    const rays = 8;
+                    const ray = Math.abs(Math.sin(angle * rays));
+                    const colors = getGradientColors('c7');
+                    return {
+                        isPattern: ray > 0.7,
+                        gradient: createGradientClass(colors, 'linear', (px + py) % 360)
+                    };
+                },
+                weave: (px, py) => {
+                    const wX = px % (size/3);
+                    const wY = py % (size/3);
+                    const weavePattern = (wX < size/6) !== (wY < size/6);
+                    const colors = getGradientColors('c8');
+                    return {
+                        isPattern: weavePattern,
+                        gradient: createGradientClass(colors, 'linear', (px + py) % 360)
+                    };
+                },
+                mosaic: (px, py) => {
+                    const mX = Math.floor(px / (size/6));
+                    const mY = Math.floor(py / (size/6));
+                    const checker = (mX + mY) % 2 === 0;
+                    const colors = getGradientColors('c2');
+                    return {
+                        isPattern: checker,
+                        gradient: createGradientClass(colors, 'linear', (px + py) % 360)
+                    };
+                },
+                spiral: (px, py) => {
+                    const centerX = size/2;
+                    const centerY = size/2;
+                    const dx = px - centerX;
+                    const dy = py - centerY;
+                    const angle = Math.atan2(dy, dx);
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    const spiral = (angle + dist/10) % (Math.PI/4);
+                    const colors = getGradientColors('c4');
+                    return {
+                        isPattern: spiral < Math.PI/8,
+                        gradient: createGradientClass(colors, 'linear', (px + py) % 360)
+                    };
+                },
+                nestedDiamonds: (px, py) => {
+                    const centerX = size/2;
+                    const centerY = size/2;
+                    const manhattan = Math.abs(px - centerX) + Math.abs(py - centerY);
+                    const ring = manhattan % (size/4);
+                    const colors = getGradientColors('c5');
+                    return {
+                        isPattern: ring < size/8,
+                        gradient: createGradientClass(colors, 'linear', (px + py) % 360)
+                    };
+                },
+                medallion: (px, py) => {
+                    const centerX = size/2;
+                    const centerY = size/2;
+                    const dx = px - centerX;
+                    const dy = py - centerY;
+                    const angle = Math.atan2(dy, dx) * 8;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    const pointy = Math.abs(Math.cos(angle)) * dist;
+                    const colors = getGradientColors('c7');
+                    return {
+                        isPattern: pointy < size/3,
+                        gradient: createGradientClass(colors, 'linear', (px + py) % 360)
+                    };
+                },
+                maze: (px, py) => {
+                    const cellX = Math.floor(px / (size/8));
+                    const cellY = Math.floor(py / (size/8));
+                    const noise = Math.sin(cellX * 0.7) * Math.cos(cellY * 0.7);
+                    const colors = getGradientColors('c8');
+                    return {
+                        isPattern: noise > 0.2,
+                        gradient: createGradientClass(colors, 'linear', (px + py) % 360)
+                    };
+                },
+                cellular: (px, py) => {
+                    const points = [
+                        [size/4, size/4],
+                        [size*3/4, size/4],
+                        [size/4, size*3/4],
+                        [size*3/4, size*3/4]
+                    ];
+                    const minDist = Math.min(...points.map(([x, y]) => 
+                        Math.sqrt(Math.pow(px-x, 2) + Math.pow(py-y, 2))
+                    ));
+                    const colors = getGradientColors('c1');
+                    return {
+                        isPattern: minDist < size/6,
+                        gradient: createGradientClass(colors, 'linear', (px + py) % 360)
+                    };
+                },
+                islamic: (px, py) => {
+                    const gridSize = size/6;
+                    const gx = px % gridSize;
+                    const gy = py % gridSize;
+                    const center = gridSize/2;
+                    const radius = Math.sqrt(Math.pow(gx-center, 2) + Math.pow(gy-center, 2));
+                    const angle = Math.atan2(gy-center, gx-center) * 6;
+                    const colors = getGradientColors('c2');
+                    return {
+                        isPattern: (radius < gridSize/2 && Math.cos(angle) > 0.5),
+                        gradient: createGradientClass(colors, 'linear', (px + py) % 360)
+                    };
+                },
+                arabesque: (px, py) => {
+                    const sx = Math.sin(px * Math.PI / (size/4));
+                    const sy = Math.sin(py * Math.PI / (size/4));
+                    const pattern = sx * sy;
+                    const colors = getGradientColors('c5');
+                    return {
+                        isPattern: pattern > 0.3,
+                        gradient: createGradientClass(colors, 'linear', (px + py) % 360)
+                    };
+                },
+                recursiveSquares: (px, py) => {
+                    const level = Math.min(
+                        Math.abs(px % (size/2) - size/4),
+                        Math.abs(py % (size/2) - size/4)
+                    );
+                    const colors = getGradientColors('c3');
+                    return {
+                        isPattern: level < size/8,
+                        gradient: createGradientClass(colors, 'linear', (px + py) % 360)
+                    };
+                },
+                floral: (px, py) => {
+                    const petals = 6;
+                    const cx = size/2;
+                    const cy = size/2;
+                    const angle = Math.atan2(py-cy, px-cx) * petals;
+                    const radius = Math.sqrt(Math.pow(px-cx, 2) + Math.pow(py-cy, 2));
+                    const colors = getGradientColors('c7');
+                    return {
+                        isPattern: Math.cos(angle) * radius < size/3,
+                        gradient: createGradientClass(colors, 'linear', (px + py) % 360)
+                    };
+                },
+                chainLink: (px, py) => {
+                    const linkSize = size/4;
+                    const x1 = px % linkSize;
+                    const y1 = py % linkSize;
+                    const dist1 = Math.sqrt(Math.pow(x1-linkSize/2, 2) + Math.pow(y1-linkSize/2, 2));
+                    const x2 = (px + linkSize/2) % linkSize;
+                    const y2 = (py + linkSize/2) % linkSize;
+                    const dist2 = Math.sqrt(Math.pow(x2-linkSize/2, 2) + Math.pow(y2-linkSize/2, 2));
+                    const colors = getGradientColors('c4');
+                    return {
+                        isPattern: dist1 < linkSize/3 || dist2 < linkSize/3,
+                        gradient: createGradientClass(colors, 'linear', (px + py) % 360)
+                    };
+                }
+            };
+
+            // Create a patchwork effect
+            const blockX = Math.floor(x / size);
+            const blockY = Math.floor(y / size);
+            const patternType = (blockX + blockY * 20) % 23; // Updated for all patterns
+            const types = ['triangles', 'diamonds', 'chevrons', 'steps', 'hexagons', 
+                         'waves', 'crosshatch', 'dots', 'zigzagBorder', 'octagons', 
+                         'starburst', 'weave', 'mosaic', 'spiral', 'nestedDiamonds',
+                         'medallion', 'maze', 'cellular', 'islamic', 'arabesque',
+                         'recursiveSquares', 'floral', 'chainLink'];
+            
+            // Get pattern for this block
+            const pattern = patterns[types[patternType]];
+            const result = pattern(x % size, y % size);
+            
+            // Enhanced color variation based on position
+            if (result.isPattern) {
+                return result.gradient;
+            }
+            
+            // Default gradient for non-pattern areas
+            const defaultColors = getGradientColors('c' + ((patternType % 10) + 1));
+            return createGradientClass(defaultColors, 'linear', (blockX + blockY) % 360);
+        }
+
+        function createGrid() {
+            const container = document.getElementById('gridContainer');
+            const squareSize = 6;     // Square size
+            const patternSize = 24;   // Pattern block size
+            
+            // Calculate grid dimensions
+            const cols = Math.ceil(window.innerWidth / squareSize);
+            const rows = Math.ceil(window.innerHeight / squareSize);
+
+            // Clear container
+            container.innerHTML = '';
+
+            // Create rows of squares
+            for (let y = 0; y < rows; y++) {
+                const row = document.createElement('div');
+                row.className = 'pattern-row';
+                
+                // Create squares within the row
+                for (let x = 0; x < cols; x++) {
+                    const square = document.createElement('div');
+                    square.className = 'square';
+                    square.style.width = `${squareSize}px`;
+                    square.style.height = `${squareSize}px`;
+                    square.style.background = createKilimPattern(x, y, patternSize);
+                    row.appendChild(square);
+                }
+                
+                container.appendChild(row);
+            }
+        }
+
+        // Create initial grid
+        createGrid();
+
+        // Recreate grid when window is resized
+        window.addEventListener('resize', createGrid);
+    </script>
+</body>
+</html>
